@@ -1,0 +1,35 @@
+hydra:
+  run:
+    dir: ${writer.log_dir}
+
+defaults:
+  - _self_
+  - dataset: mnist
+  - dataloader: default
+  - transforms: ${dataset}
+  - model: vae
+  - criterion: vae
+  - metrics: default
+  - optimizer: default
+  - lr_scheduler: default
+
+writer:
+  _target_: src.logger.wandb.WandbWriter
+  project_name: vae
+  run_name: test
+  mode: offline # online
+  log_dir: logs/${writer.project_name}/${writer.run_name}
+
+
+trainer:
+  log_step: 50 # batches
+  num_epochs: 10
+  epoch_len: null
+  device_tensors: ['x'] # images
+  device: auto # device name or "auto"
+  monitor: min test_FID # "off" or "max/min metric_name", i.e. our goal is to maximize/minimize metric
+  save_period: 5 # checkpoint each save_period epochs in addition to the best epoch
+  early_stop: null # epochs for early stopping
+  max_grad_norm: null
+  checkpoint_dir: ${writer.log_dir}/checkpoints
+  seed: 1
