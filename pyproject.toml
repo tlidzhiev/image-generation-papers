@@ -1,0 +1,19 @@
+[project]
+name = "image-generation-papers"
+version = "0.1.0"
+description = "Implementations of image generation papers"
+readme = "README.md"
+requires-python = "==3.12.11"
+dependencies = ["pre-commit==4.3.0", "ruff==0.14.0"]
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff]
+line-length = 100
