@@ -61,7 +61,7 @@ class BaseTrainer:
             self.epoch_len = len(self.train_dataloader)
         else:
             self.train_dataloader = inf_loop(dataloaders['train'])
-            self.epoch_len = self.epoch_len
+            self.epoch_len = epoch_len
         self.eval_dataloaders = {k: v for k, v in dataloaders.items() if k != 'train'}
 
         # define epochs
