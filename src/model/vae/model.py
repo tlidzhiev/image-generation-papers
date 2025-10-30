@@ -11,6 +11,29 @@ from .residual import ResidualBlock
 
 
 class Encoder(nn.Module):
+    """
+    VAE encoder that maps images to latent distributions.
+
+    Parameters
+    ----------
+    image_size : int
+        Input image size (assumes square images).
+    hidden_dims : list[int]
+        Channel dimensions for each layer.
+    latent_dim : int
+        Dimension of latent space.
+    activation : {'relu', 'leaky_relu', 'silu', 'gelu'}, optional
+        Activation function (default: 'silu').
+    norm_type : {'batchnorm', 'groupnorm'}, optional
+        Normalization type (default: 'groupnorm').
+    use_res : bool, optional
+        Use residual blocks (default: True).
+    use_attn : bool, optional
+        Use attention blocks (default: True).
+    attn_res : list[int] or None, optional
+        Resolutions at which to apply attention.
+    """
+
     def __init__(
         self,
         image_size: int,
@@ -108,6 +131,21 @@ class Encoder(nn.Module):
 
     @staticmethod
     def reparameterize(mu: torch.FloatTensor, logvar: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Reparameterization trick for sampling from latent distribution.
+
+        Parameters
+        ----------
+        mu : torch.FloatTensor
+            Mean of latent distribution.
+        logvar : torch.FloatTensor
+            Log variance of latent distribution.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Sampled latent vector.
+        """
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
@@ -115,6 +153,19 @@ class Encoder(nn.Module):
     def forward(
         self, x: torch.FloatTensor
     ) -> tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+        """
+        Encode images to latent space.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Input images.
+
+        Returns
+        -------
+        tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]
+            Latent sample, mean, and log variance.
+        """
         features = self.features(x)
         features_flat = rearrange(features, 'b c h w -> b (c h w)')
 
@@ -126,6 +177,19 @@ class Encoder(nn.Module):
 
 
 class UpsampleBlock(nn.Module):
+    """
+    Upsampling block with interpolation and convolution.
+
+    Parameters
+    ----------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    mode : {'nearest', 'linear', 'bilinear', 'bicubic', 'trilinear'}
+        Upsampling interpolation mode.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -144,12 +208,38 @@ class UpsampleBlock(nn.Module):
         )
 
     def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
+        """Upsample and convolve."""
         x = self.upsample(x)
         x = self.conv(x)
         return x
 
 
 class Decoder(nn.Module):
+    """
+    VAE decoder that maps latent vectors to images.
+
+    Parameters
+    ----------
+    image_size : int
+        Output image size (assumes square images).
+    hidden_dims : list[int]
+        Channel dimensions for each layer.
+    latent_dim : int
+        Dimension of latent space.
+    activation : {'relu', 'leaky_relu', 'silu', 'gelu'}, optional
+        Activation function (default: 'relu').
+    norm_type : {'batchnorm', 'groupnorm'}, optional
+        Normalization type (default: 'batchnorm').
+    use_res : bool, optional
+        Use residual blocks (default: True).
+    use_attn : bool, optional
+        Use attention blocks (default: False).
+    attn_res : list[int] or None, optional
+        Resolutions at which to apply attention.
+    upsample_mode : {'nearest', 'linear', 'bilinear', 'bicubic', 'trilinear'}, optional
+        Upsampling mode (default: 'nearest').
+    """
+
     def __init__(
         self,
         image_size: int,
@@ -251,6 +341,19 @@ class Decoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, z: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Decode latent vectors to images.
+
+        Parameters
+        ----------
+        z : torch.FloatTensor
+            Latent vectors.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Decoded images.
+        """
         hidden = self.from_latent(z)
         hidden = rearrange(
             hidden,
@@ -264,6 +367,39 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
+    """
+    Variational Autoencoder for image generation.
+
+    Parameters
+    ----------
+    image_size : int
+        Size of square input images.
+    in_channels : int
+        Number of input image channels.
+    hidden_dims : tuple[int, ...] or list[int]
+        Channel dimensions for each layer.
+    latent_dim : int
+        Dimension of latent space.
+    activation : {'relu', 'leaky_relu', 'silu', 'gelu'}, optional
+        Activation function (default: 'relu').
+    norm_type : {'batchnorm', 'groupnorm'}, optional
+        Normalization type (default: 'batchnorm').
+    use_res : bool, optional
+        Use residual blocks (default: True).
+    use_attn : bool, optional
+        Use attention blocks (default: False).
+    attn_res_enc : list[int] or None, optional
+        Encoder attention resolutions.
+    attn_res_dec : list[int] or None, optional
+        Decoder attention resolutions.
+    upsample_mode : {'nearest', 'linear', 'bilinear', 'bicubic', 'trilinear'}, optional
+        Upsampling mode (default: 'nearest').
+    output_range : {'sigmoid', 'tanh'}, optional
+        Output activation (default: 'sigmoid').
+    init_mode : {'normal', 'uniform'}, optional
+        Weight initialization mode (default: 'normal').
+    """
+
     def __init__(
         self,
         image_size: int,
@@ -331,6 +467,21 @@ class VAE(nn.Module):
         self._initialize_weights(activation, init_mode)
 
     def forward(self, x: torch.FloatTensor, **kwargs) -> dict[str, torch.FloatTensor]:
+        """
+        Forward pass through VAE.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Input images.
+        **kwargs : dict
+            Additional arguments (ignored).
+
+        Returns
+        -------
+        dict[str, torch.FloatTensor]
+            Dictionary with 'x_hat' (reconstruction), 'mu', and 'logvar'.
+        """
         z, mu, logvar = self.encode(x)
         x_hat = self.decode(z)
         return {'x_hat': x_hat, 'mu': mu, 'logvar': logvar}
@@ -342,17 +493,58 @@ class VAE(nn.Module):
         torch.FloatTensor,
         torch.FloatTensor,
     ]:
+        """
+        Encode images to latent space.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Input images.
+
+        Returns
+        -------
+        tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]
+            Latent sample, mean, and log variance.
+        """
         x = self.input_proj(x)
         z, mu, logvar = self.encoder(x)
         return z, mu, logvar
 
     def decode(self, z: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Decode latent vectors to images.
+
+        Parameters
+        ----------
+        z : torch.FloatTensor
+            Latent vectors.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Reconstructed images.
+        """
         output = self.decoder(z)
         output = self.output_proj(output)
         return output
 
     @torch.inference_mode()
     def sample(self, num_samples: int, device: str = 'cpu') -> torch.FloatTensor:
+        """
+        Generate samples from random latent vectors.
+
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to generate.
+        device : str, optional
+            Device to generate on (default: 'cpu').
+
+        Returns
+        -------
+        torch.FloatTensor
+            Generated images.
+        """
         was_training = self.training
         self.eval()
         z = torch.randn(num_samples, self.latent_dim, device=device)
@@ -361,4 +553,14 @@ class VAE(nn.Module):
         return output
 
     def _initialize_weights(self, activation: str, mode: str):
+        """
+        Initialize network weights.
+
+        Parameters
+        ----------
+        activation : str
+            Activation function type.
+        mode : str
+            Initialization mode ('normal' or 'uniform').
+        """
         initialize_weights(self, activation=activation, mode=mode)

@@ -4,6 +4,21 @@ from einops import rearrange
 
 
 class ResidualBlock(nn.Module):
+    """
+    Residual block with time embedding conditioning.
+
+    Parameters
+    ----------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    time_dim : int
+        Dimension of time embedding.
+    dropout : float, optional
+        Dropout probability (default: 0.1).
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -31,6 +46,21 @@ class ResidualBlock(nn.Module):
         )
 
     def forward(self, x: torch.FloatTensor, t: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Forward pass with time conditioning.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Input tensor of shape (batch, in_channels, height, width).
+        t : torch.FloatTensor
+            Time embedding of shape (batch, time_dim).
+
+        Returns
+        -------
+        torch.FloatTensor
+            Output tensor of shape (batch, out_channels, height, width).
+        """
         h = self.conv_block1(x)
         time_emb = self.time_proj(t)
         time_emb = rearrange(time_emb, 'b d -> b d 1 1')

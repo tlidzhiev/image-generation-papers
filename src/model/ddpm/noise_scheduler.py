@@ -4,6 +4,19 @@ from einops import rearrange
 
 
 class NoiseScheduler(nn.Module):
+    """
+    Noise scheduler for DDPM forward and reverse diffusion processes.
+
+    Parameters
+    ----------
+    num_steps : int
+        Number of diffusion timesteps.
+    beta_start : float, optional
+        Starting beta value (default: 0.0001).
+    beta_end : float, optional
+        Ending beta value (default: 0.02).
+    """
+
     def __init__(
         self,
         num_steps: int,
@@ -31,6 +44,23 @@ class NoiseScheduler(nn.Module):
         t: torch.LongTensor,
         eps: torch.FloatTensor | None = None,
     ) -> torch.FloatTensor:
+        """
+        Forward diffusion process: add noise to clean images.
+
+        Parameters
+        ----------
+        x0 : torch.FloatTensor
+            Clean images of shape (batch, channels, height, width).
+        t : torch.LongTensor
+            Timesteps of shape (batch,).
+        eps : torch.FloatTensor or None, optional
+            Noise tensor. If None, samples from standard normal.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Noised images at timestep t.
+        """
         if eps is None:
             eps = torch.randn_like(x0)
 
@@ -47,6 +77,25 @@ class NoiseScheduler(nn.Module):
         eps: torch.FloatTensor,
         add_noise: bool = True,
     ) -> torch.FloatTensor:
+        """
+        Reverse diffusion process: denoise images by one timestep.
+
+        Parameters
+        ----------
+        xt : torch.FloatTensor
+            Noisy images at timestep t.
+        t : torch.LongTensor
+            Current timesteps of shape (batch,).
+        eps : torch.FloatTensor
+            Predicted noise from the model.
+        add_noise : bool, optional
+            Whether to add noise during sampling (default: True).
+
+        Returns
+        -------
+        torch.FloatTensor
+            Denoised images at timestep t-1.
+        """
         alpha_t = rearrange(self.alpha[t], 'b -> b 1 1 1')
         alpha_bar_t = rearrange(self.alpha_bar[t], 'b -> b 1 1 1')
         beta_t = rearrange(self.beta[t], 'b -> b 1 1 1')

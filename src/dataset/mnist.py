@@ -13,6 +13,27 @@ from src.utils.io import get_root, read_json, write_json
 
 
 class MNISTDataset(BaseDataset):
+    """
+    MNIST dataset wrapper with preprocessing to safetensors format.
+
+    Parameters
+    ----------
+    root : Path or str or None, optional
+        Root directory for dataset. If None, uses default path.
+    split : {'train', 'test'}, optional
+        Dataset split to use (default: 'train').
+    limit : int or None, optional
+        Maximum number of samples to use.
+    shuffle_index : bool, optional
+        Whether to shuffle the index (default: False).
+    instance_transforms : dict[str, Callable] or None, optional
+        Transforms to apply to each instance.
+    force_reindex : bool, optional
+        Force recreation of index file (default: False).
+    use_condition : bool, optional
+        Whether to use conditional labels (default: True).
+    """
+
     def __init__(
         self,
         root: Path | str | None = None,
@@ -47,6 +68,21 @@ class MNISTDataset(BaseDataset):
         split: Literal['train', 'test'],
         data_path: Path,
     ) -> list[dict[str, Any]]:
+        """
+        Create dataset index by downloading and preprocessing MNIST.
+
+        Parameters
+        ----------
+        split : {'train', 'test'}
+            Dataset split to process.
+        data_path : Path
+            Path to save processed data.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of data entries with 'path' and 'label' keys.
+        """
         index: list[dict[str, Any]] = []
         data_path.mkdir(exist_ok=True, parents=True)
 

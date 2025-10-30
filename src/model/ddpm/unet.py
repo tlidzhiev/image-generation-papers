@@ -12,6 +12,20 @@ from .residual import ResidualBlock
 
 
 class TimeEmbedding(nn.Module):
+    """
+    Sinusoidal time embedding with learned projection.
+
+    Parameters
+    ----------
+    dim : int
+        Embedding dimension (must be even).
+
+    Raises
+    ------
+    AssertionError
+        If dim is not even.
+    """
+
     def __init__(self, dim: int):
         assert dim % 2 == 0, 'dim must be even'
         super().__init__()
@@ -28,12 +42,40 @@ class TimeEmbedding(nn.Module):
         )
 
     def forward(self, t: torch.LongTensor) -> torch.FloatTensor:
+        """
+        Create time embeddings from timesteps.
+
+        Parameters
+        ----------
+        t : torch.LongTensor
+            Timesteps of shape (batch,).
+
+        Returns
+        -------
+        torch.FloatTensor
+            Time embeddings of shape (batch, dim*4).
+        """
         freqs = rearrange(t, 'b -> b 1').float() * self.freq_bands
         embeddings = torch.cat([torch.sin(freqs), torch.cos(freqs)], dim=-1)
         return self.proj(embeddings)
 
 
 class DownBlock(nn.Module):
+    """
+    Downsampling block with residual connection and optional attention.
+
+    Parameters
+    ----------
+    in_channels : int
+        Number of input channels.
+    out_channels : int
+        Number of output channels.
+    time_dim : int
+        Time embedding dimension.
+    has_attn : bool
+        Whether to include self-attention.
+    """
+
     def __init__(self, in_channels: int, out_channels: int, time_dim: int, has_attn: bool):
         super().__init__()
         self.res = ResidualBlock(in_channels, out_channels, time_dim)
@@ -43,12 +85,24 @@ class DownBlock(nn.Module):
             self.attn = nn.Identity()
 
     def forward(self, x: torch.FloatTensor, t: torch.FloatTensor) -> torch.FloatTensor:
+        """Forward pass through residual and attention layers."""
         x = self.res(x, t)
         x = self.attn(x)
         return x
 
 
 class MiddleBlock(nn.Module):
+    """
+    Middle block with two residual blocks and attention.
+
+    Parameters
+    ----------
+    channels : int
+        Number of channels.
+    time_dim : int
+        Time embedding dimension.
+    """
+
     def __init__(self, channels: int, time_dim: int):
         super().__init__()
         self.res1 = ResidualBlock(channels, channels, time_dim)
@@ -56,6 +110,7 @@ class MiddleBlock(nn.Module):
         self.res2 = ResidualBlock(channels, channels, time_dim)
 
     def forward(self, x: torch.FloatTensor, t: torch.FloatTensor) -> torch.FloatTensor:
+        """Forward pass through res-attn-res layers."""
         x = self.res1(x, t)
         x = self.attn(x)
         x = self.res2(x, t)
@@ -63,6 +118,21 @@ class MiddleBlock(nn.Module):
 
 
 class UpBlock(nn.Module):
+    """
+    Upsampling block with skip connections and optional attention.
+
+    Parameters
+    ----------
+    in_channels : int
+        Number of input channels (before concatenation).
+    out_channels : int
+        Number of output channels.
+    time_dim : int
+        Time embedding dimension.
+    has_attn : bool
+        Whether to include self-attention.
+    """
+
     def __init__(self, in_channels: int, out_channels: int, time_dim: int, has_attn: bool):
         super().__init__()
         self.res = ResidualBlock(in_channels + out_channels, out_channels, time_dim)
@@ -72,12 +142,22 @@ class UpBlock(nn.Module):
             self.attn = nn.Identity()
 
     def forward(self, x: torch.FloatTensor, t: torch.FloatTensor) -> torch.FloatTensor:
+        """Forward pass through residual and attention layers."""
         x = self.res(x, t)
         x = self.attn(x)
         return x
 
 
 class Downsample(nn.Module):
+    """
+    Spatial downsampling by factor of 2 using strided convolution.
+
+    Parameters
+    ----------
+    channels : int
+        Number of channels.
+    """
+
     def __init__(self, channels: int):
         super().__init__()
         self.conv = nn.Conv2d(channels, channels, kernel_size=3, stride=2, padding=1)
@@ -85,10 +165,20 @@ class Downsample(nn.Module):
     def forward(
         self, x: torch.FloatTensor, t: torch.FloatTensor | None = None
     ) -> torch.FloatTensor:
+        """Downsample spatial dimensions."""
         return self.conv(x)
 
 
 class Upsample(nn.Module):
+    """
+    Spatial upsampling by factor of 2 using nearest neighbor interpolation.
+
+    Parameters
+    ----------
+    channels : int
+        Number of channels.
+    """
+
     def __init__(self, channels: int):
         super().__init__()
         self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
@@ -102,12 +192,32 @@ class Upsample(nn.Module):
         )
 
     def forward(self, x: torch.FloatTensor, t: torch.FloatTensor) -> torch.FloatTensor:
+        """Upsample spatial dimensions."""
         x = self.upsample(x)
         x = self.conv(x)
         return x
 
 
 class UNet(nn.Module):
+    """
+    U-Net architecture for DDPM noise prediction.
+
+    Parameters
+    ----------
+    in_channels : int
+        Number of input image channels.
+    num_channels : int
+        Base number of channels.
+    ch_mults : list[int]
+        Channel multipliers for each resolution level.
+    use_attn : list[bool]
+        Whether to use attention at each resolution level.
+    num_blocks : int
+        Number of residual blocks per resolution level.
+    init_mode : {'normal', 'uniform'}, optional
+        Weight initialization mode (default: 'normal').
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -157,6 +267,21 @@ class UNet(nn.Module):
         self._initialize_weights(mode=init_mode)
 
     def forward(self, x: torch.FloatTensor, t: torch.LongTensor) -> torch.FloatTensor:
+        """
+        Forward pass through U-Net.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Input images of shape (batch, channels, height, width).
+        t : torch.LongTensor
+            Timesteps of shape (batch,).
+
+        Returns
+        -------
+        torch.FloatTensor
+            Predicted noise of shape (batch, channels, height, width).
+        """
         x, t = self.input_proj(x), self.time_emb(t)
         skips = [x]
         for block in self.down:
@@ -175,4 +300,12 @@ class UNet(nn.Module):
         return self.output_proj(x)
 
     def _initialize_weights(self, mode: str):
+        """
+        Initialize network weights.
+
+        Parameters
+        ----------
+        mode : str
+            Initialization mode ('normal' or 'uniform').
+        """
         initialize_weights(self, activation='silu', mode=mode)

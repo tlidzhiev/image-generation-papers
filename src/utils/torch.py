@@ -8,6 +8,24 @@ from torch.utils.data import DataLoader
 
 
 def _parse_act(activation: str) -> tuple[str, float | None]:
+    """
+    Parse activation string into name and optional parameter.
+
+    Parameters
+    ----------
+    activation : str
+        Activation string, optionally with parameter (e.g., 'leaky_relu:0.2').
+
+    Returns
+    -------
+    tuple[str, float or None]
+        Activation name and parameter (None if not specified).
+
+    Raises
+    ------
+    ValueError
+        If parameter is invalid.
+    """
     if ':' in activation:
         act_name, param_str = activation.split(':', 1)
         try:
@@ -22,6 +40,24 @@ def _parse_act(activation: str) -> tuple[str, float | None]:
 
 
 def get_activation(activation: str) -> nn.Module:
+    """
+    Get activation module from string descriptor.
+
+    Parameters
+    ----------
+    activation : str
+        Activation type ('relu', 'leaky_relu', 'gelu', 'silu').
+
+    Returns
+    -------
+    nn.Module
+        PyTorch activation module.
+
+    Raises
+    ------
+    ValueError
+        If activation type is unsupported.
+    """
     act_name, param = _parse_act(activation)
     match act_name:
         case 'relu':
@@ -41,6 +77,28 @@ def get_activation(activation: str) -> nn.Module:
 
 
 def get_norm_layer(norm_type: str, channels: int, num_groups: int = 32) -> nn.Module:
+    """
+    Get normalization layer from string descriptor.
+
+    Parameters
+    ----------
+    norm_type : str
+        Normalization type ('batchnorm' or 'groupnorm').
+    channels : int
+        Number of channels.
+    num_groups : int, optional
+        Number of groups for GroupNorm (default: 32).
+
+    Returns
+    -------
+    nn.Module
+        PyTorch normalization module.
+
+    Raises
+    ------
+    ValueError
+        If normalization type is unsupported.
+    """
     match norm_type:
         case 'batchnorm':
             return nn.BatchNorm2d(channels)
@@ -55,6 +113,23 @@ def get_norm_layer(norm_type: str, channels: int, num_groups: int = 32) -> nn.Mo
 
 
 def initialize_weights(module: nn.Module, activation: str = 'relu', mode: str = 'normal'):
+    """
+    Initialize module weights using Kaiming initialization.
+
+    Parameters
+    ----------
+    module : nn.Module
+        PyTorch module to initialize.
+    activation : str, optional
+        Activation function type (default: 'relu').
+    mode : str, optional
+        Initialization mode ('normal' or 'uniform'), default 'normal'.
+
+    Raises
+    ------
+    ValueError
+        If mode or activation type is unsupported.
+    """
     if mode not in ['normal', 'uniform']:
         raise ValueError(
             f'Unknown initialization mode: "{mode}". Supported modes: "normal", "uniform".'
@@ -96,6 +171,22 @@ def initialize_weights(module: nn.Module, activation: str = 'relu', mode: str = 
 
 
 def get_num_params(model: nn.Module, trainable_only: bool = True) -> str:
+    """
+    Get formatted count of model parameters.
+
+    Parameters
+    ----------
+    model : nn.Module
+        PyTorch model.
+    trainable_only : bool, optional
+        Count only trainable parameters (default: True).
+
+    Returns
+    -------
+    str
+        Formatted parameter count (e.g., '1.23M', '456K').
+    """
+
     def format_number(num: int) -> str:
         if abs(num) >= 1_000_000:
             return f'{num / 1_000_000:.2f}M'
@@ -116,6 +207,23 @@ def get_lr_scheduler(
     optimizer: Optimizer,
     train_loader: DataLoader,
 ) -> LRScheduler:
+    """
+    Create learning rate scheduler from config.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra configuration object.
+    optimizer : Optimizer
+        PyTorch optimizer.
+    train_loader : DataLoader
+        Training dataloader for computing total steps.
+
+    Returns
+    -------
+    LRScheduler
+        Configured learning rate scheduler.
+    """
     if cfg.lr_scheduler.scheduler.name == 'constant':
         num_training_steps, num_warmup_steps = None, None
     else:
@@ -132,6 +240,27 @@ def get_lr_scheduler(
 
 
 def get_dtype(dtype: str = 'float32') -> torch.dtype:
+    """
+    Convert string to PyTorch dtype.
+
+    Used for Hydra configuration compatibility, as Hydra cannot directly
+    instantiate torch.dtype objects.
+
+    Parameters
+    ----------
+    dtype : str, optional
+        Data type string ('float32' or 'float64'), default 'float32'.
+
+    Returns
+    -------
+    torch.dtype
+        PyTorch data type.
+
+    Raises
+    ------
+    ValueError
+        If dtype string is unsupported.
+    """
     match dtype:
         case 'float32':
             return torch.float32

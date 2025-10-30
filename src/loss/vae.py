@@ -6,6 +6,25 @@ import torch.nn.functional as F
 
 
 class VAELoss(nn.Module):
+    """
+    Loss function for Variational Autoencoder (VAE).
+    Combines reconstruction loss and KL divergence.
+
+    Parameters
+    ----------
+    beta : float, optional
+        Weight for KL divergence term (default: 1.0).
+    reconstruction_loss : {'mse', 'bce'}, optional
+        Type of reconstruction loss (default: 'mse').
+    per_element_mean : bool, optional
+        If False, sum over dims then mean over batch (default: False).
+
+    Attributes
+    ----------
+    loss_names : list[str]
+        Names of loss components: ['loss', 'recon_loss', 'kl_loss'].
+    """
+
     def __init__(
         self,
         beta: float = 1.0,
@@ -25,6 +44,25 @@ class VAELoss(nn.Module):
         mu: torch.FloatTensor,
         logvar: torch.FloatTensor,
     ) -> dict[str, torch.FloatTensor]:
+        """
+        Compute VAE loss.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Original input data.
+        x_hat : torch.FloatTensor
+            Reconstructed data from decoder.
+        mu : torch.FloatTensor
+            Mean of latent distribution.
+        logvar : torch.FloatTensor
+            Log variance of latent distribution.
+
+        Returns
+        -------
+        dict[str, torch.FloatTensor]
+            Dictionary with 'loss', 'recon_loss', and 'kl_loss' keys.
+        """
         if self.reconstruction_loss == 'mse':
             per_sample = F.mse_loss(x_hat, x, reduction='none').flatten(1)
             recon = per_sample.mean(1) if self.per_element_mean else per_sample.sum(1)
@@ -44,6 +82,14 @@ class VAELoss(nn.Module):
         return {'loss': loss, 'recon_loss': recon, 'kl_loss': kl}
 
     def __repr__(self):
+        """
+        Return string representation of the loss.
+
+        Returns
+        -------
+        str
+            String with loss configuration.
+        """
         return (
             f'{type(self).__name__}(beta={self.beta}, '
             f'reconstruction_loss="{self.reconstruction_loss}", '

@@ -4,10 +4,32 @@ import torch
 
 
 class collate_images_fn:
+    """
+    Collate function for batching image data.
+
+    Parameters
+    ----------
+    use_condition : bool
+        Whether to collate conditional labels.
+    """
+
     def __init__(self, use_condition: bool):
         self.use_condition = use_condition
 
     def __call__(self, batch: list[dict[str, Any]]) -> dict[str, torch.Tensor]:
+        """
+        Collate list of samples into a batch.
+
+        Parameters
+        ----------
+        batch : list[dict[str, Any]]
+            List of samples with 'x' and optionally 'c' keys.
+
+        Returns
+        -------
+        dict[str, torch.Tensor]
+            Batched data with 'x' and optionally 'c' tensors.
+        """
         images, conditions = [], [] if self.use_condition else None
         for item in batch:
             images.append(item['x'])

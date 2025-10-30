@@ -5,6 +5,22 @@ from einops import rearrange
 
 
 class SelfAttentionBlock(nn.Module):
+    """
+    Multi-head self-attention block for VAE features.
+
+    Parameters
+    ----------
+    channels : int
+        Number of input/output channels.
+    num_heads : int, optional
+        Number of attention heads (default: 8).
+
+    Raises
+    ------
+    AssertionError
+        If channels is not divisible by num_heads.
+    """
+
     def __init__(self, channels: int, num_heads: int = 8):
         super().__init__()
         self.channels = channels
@@ -18,6 +34,19 @@ class SelfAttentionBlock(nn.Module):
         self.proj = nn.Conv2d(channels, channels, kernel_size=1, bias=False)
 
     def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Apply self-attention with residual connection.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Input tensor of shape (batch, channels, height, width).
+
+        Returns
+        -------
+        torch.FloatTensor
+            Output tensor of shape (batch, channels, height, width).
+        """
         b, c, h, w = x.shape
         x_norm = self.norm(x)
         qkv = self.qkv(x_norm)

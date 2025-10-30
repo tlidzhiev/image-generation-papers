@@ -11,6 +11,10 @@ from .base import BaseTrainer
 
 
 class DDPMTrainer(BaseTrainer):
+    """
+    Trainer for DDPM models.
+    """
+
     model: DDPM
     criterion: DDPMLoss
 
@@ -20,6 +24,23 @@ class DDPMTrainer(BaseTrainer):
         metrics: MetricTracker,
         part: Literal['train', 'val', 'test'] = 'train',
     ) -> dict[str, Any]:
+        """
+        Process batch for DDPM training/evaluation.
+
+        Parameters
+        ----------
+        batch : dict[str, Any]
+            Batch with 'x' (images).
+        metrics : MetricTracker
+            Metrics tracker.
+        part : {'train', 'val', 'test'}, optional
+            Current phase (default: 'train').
+
+        Returns
+        -------
+        dict[str, Any]
+            Batch with outputs, losses, and optional samples.
+        """
         batch = self._to_device(batch)
         batch = self._transform_batch(batch)  # transform batch on device -- faster
 
@@ -70,6 +91,18 @@ class DDPMTrainer(BaseTrainer):
         batch: dict[str, Any],
         epoch: int,
     ):
+        """
+        Log batch results (images, etc.).
+
+        Parameters
+        ----------
+        batch_idx : int
+            Batch index.
+        batch : dict[str, Any]
+            Batch data and outputs.
+        epoch : int
+            Current epoch number.
+        """
         b, c, h, w = batch['x'].shape
         num_samples = min(8, b)
 

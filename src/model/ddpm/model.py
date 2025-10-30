@@ -7,6 +7,29 @@ from .unet import UNet
 
 
 class DDPM(nn.Module):
+    """
+    Denoising Diffusion Probabilistic Model for image generation.
+
+    Parameters
+    ----------
+    image_shape : tuple[int, int, int]
+        Shape of images (channels, height, width).
+    num_channels : int, optional
+        Base number of channels in U-Net (default: 64).
+    ch_mults : list[int], optional
+        Channel multipliers per resolution (default: [1, 2, 2, 4]).
+    use_attn : list[bool], optional
+        Attention flags per resolution (default: [False, False, True, True]).
+    num_blocks : int, optional
+        Number of residual blocks per resolution (default: 2).
+    num_steps : int, optional
+        Number of diffusion timesteps (default: 1000).
+    beta_start : float, optional
+        Starting beta value (default: 0.0001).
+    beta_end : float, optional
+        Ending beta value (default: 0.02).
+    """
+
     def __init__(
         self,
         image_shape: tuple[int, int, int],
@@ -39,6 +62,23 @@ class DDPM(nn.Module):
         eps: torch.FloatTensor,
         **kwargs,
     ) -> dict[str, torch.FloatTensor]:
+        """
+        Training forward pass: add noise and predict it.
+
+        Parameters
+        ----------
+        x : torch.FloatTensor
+            Clean images.
+        eps : torch.FloatTensor
+            Noise to add.
+        **kwargs : dict
+            Additional arguments (ignored).
+
+        Returns
+        -------
+        dict[str, torch.FloatTensor]
+            Dictionary with 'xt' (noised images) and 'eps_theta' (predicted noise).
+        """
         x0 = x
 
         batch_size = x0.shape[0]
@@ -59,6 +99,23 @@ class DDPM(nn.Module):
         eps: torch.FloatTensor,
         t: torch.LongTensor | None = None,
     ) -> torch.FloatTensor:
+        """
+        Add noise to clean images.
+
+        Parameters
+        ----------
+        x0 : torch.FloatTensor
+            Clean images.
+        eps : torch.FloatTensor
+            Noise tensor.
+        t : torch.LongTensor or None, optional
+            Timesteps. If None, randomly sampled.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Noised images.
+        """
         if t is None:
             batch_size = x0.shape[0]
             t = torch.randint(
@@ -71,10 +128,38 @@ class DDPM(nn.Module):
         return self.noise_scheduler(x0=x0, t=t, eps=eps)
 
     def denoise(self, xt: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Denoise images through full reverse process.
+
+        Parameters
+        ----------
+        xt : torch.FloatTensor
+            Noised images to denoise.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Denoised images.
+        """
         return self._denoise(xt, 'Denoising...')
 
     @torch.inference_mode()
     def sample(self, num_samples: int, device: str) -> torch.FloatTensor:
+        """
+        Generate samples from random noise.
+
+        Parameters
+        ----------
+        num_samples : int
+            Number of samples to generate.
+        device : str
+            Device to generate on ('cuda' or 'cpu').
+
+        Returns
+        -------
+        torch.FloatTensor
+            Generated images.
+        """
         was_training = self.training
         self.eval()
         xt = torch.randn(num_samples, *self.image_shape, device=device)
@@ -84,6 +169,21 @@ class DDPM(nn.Module):
 
     @torch.inference_mode()
     def _denoise(self, xt: torch.FloatTensor, desc: str | None = None) -> torch.FloatTensor:
+        """
+        Internal denoising implementation with progress bar.
+
+        Parameters
+        ----------
+        xt : torch.FloatTensor
+            Noised images.
+        desc : str or None, optional
+            Progress bar description.
+
+        Returns
+        -------
+        torch.FloatTensor
+            Denoised images clamped to [-1, 1].
+        """
         self.eval()
         batch_size = xt.shape[0]
         T = self.noise_scheduler.num_steps
